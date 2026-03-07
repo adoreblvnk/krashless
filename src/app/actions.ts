@@ -63,6 +63,11 @@ export async function generateBlueprint(): Promise<BlueprintResult> {
   let imageBase64: string | null = null;
   const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
 
+  const clampPercent = (value: number, min = 1, max = 99): number => {
+    if (!Number.isFinite(value)) return min;
+    return Math.min(max, Math.max(min, value));
+  };
+
   try {
     const videoPath = path.join(process.cwd(), 'public', 'mock-cctv.mp4');
     let videoUri: string | null = null;
@@ -118,8 +123,15 @@ Generate a modernization blueprint recommending 3 infrastructure modifications t
       schema: blueprintSchema,
       messages: messages,
     });
-    
-    blueprintData = object;
+
+    blueprintData = {
+      ...object,
+      modifications: object.modifications.map((mod) => ({
+        ...mod,
+        x: clampPercent(mod.x),
+        y: clampPercent(mod.y),
+      })),
+    };
   } catch (error) {
     console.error("Failed to generate blueprint from Gemini, falling back to mock data", error);
     await new Promise(resolve => setTimeout(resolve, 3000));
@@ -153,7 +165,54 @@ CRITICAL: You must preserve the original background, trees, buildings, weather, 
 
     if (image && image.base64) {
       imageBase64 = `data:image/jpeg;base64,${image.base64}`;
+      const generatedImageBuffer = Buffer.from(image.base64, 'base64');
       console.log("[Krashless] Image generated successfully.");
+
+      // 4. Refine Marker Coordinates based on the Generated Image
+      console.log("[Krashless] Refining marker coordinates using the generated image...");
+      try {
+        const refinementPrompt = `Here is the newly generated image of the modernized intersection. 
+Below are the proposed infrastructure modifications that were applied:
+${blueprintData.modifications.map((m, i) => `${i + 1}. ${m.proposed_change} (Hazard: ${m.issue_identified})`).join("\n")}
+
+For EACH of these modifications, locate EXACTLY where it appears in THIS new image.
+Return the exact x and y coordinates (X goes left-to-right, Y goes top-to-bottom as percentages, 0-100) for the pins, placing them directly on the new infrastructure. 
+Accuracy is critical. E.g., if a speeding camera was added, the pin must be exactly on the camera, not near it or on the pavement. 
+Output them in the exact same order.`;
+
+        const { object: refinedCoordinates } = await generateObject({
+          model: google('gemini-3.1-pro-preview'),
+          schema: z.object({
+            coordinates: z.array(z.object({
+              y: z.number().describe("Y coordinate percentage for the pin (0-100)"),
+              x: z.number().describe("X coordinate percentage for the pin (0-100)")
+            }))
+          }),
+          messages: [
+            {
+              role: "user",
+              content: [
+                { type: "text", text: refinementPrompt },
+                { type: "image", image: generatedImageBuffer }
+              ]
+            }
+          ]
+        });
+
+        blueprintData.modifications = blueprintData.modifications.map((mod, i) => {
+          if (refinedCoordinates.coordinates[i]) {
+            return {
+              ...mod,
+              x: clampPercent(refinedCoordinates.coordinates[i].x),
+              y: clampPercent(refinedCoordinates.coordinates[i].y)
+            };
+          }
+          return mod;
+        });
+        console.log("[Krashless] Marker coordinates refined successfully.");
+      } catch (refineError) {
+        console.error("Failed to refine marker coordinates:", refineError);
+      }
     }
   } catch (error) {
     console.error("Failed to generate image via Nano Banana 2:", error);

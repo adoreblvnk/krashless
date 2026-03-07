@@ -50,6 +50,8 @@ export default function CommandCenter() {
   type ModStatus = { status: "pending" | "accepted" | "rejecting" | "generating" | "rejected", rejectReason: string };
   const [modStatuses, setModStatuses] = useState<ModStatus[]>([]);
 
+  const clampPct = (value: number, min = 3, max = 97) => Math.min(max, Math.max(min, value));
+
   // Live Stats Ticker
   useEffect(() => {
     if (viewState !== "live-cctv") return;
@@ -437,22 +439,22 @@ export default function CommandCenter() {
 
               <div className="grid grid-cols-2 gap-8 flex-1 min-h-0">
                 {/* Left Column: Image with Pins */}
-                <div className="relative rounded-xl overflow-hidden border-2 border-slate-800 bg-slate-900 shadow-2xl group">
+                <div className="relative rounded-xl overflow-hidden border-2 border-slate-800 bg-slate-900 shadow-2xl group aspect-video self-start">
                   <div className="absolute top-4 left-4 z-20 bg-emerald-600/90 backdrop-blur text-white text-xs font-bold px-3 py-1.5 rounded-full flex items-center gap-2 shadow-[0_0_15px_rgba(16,185,129,0.5)] border border-emerald-400/30">
                     <Zap className="w-3 h-3" />
                     GENERATED BLUEPRINT
                   </div>
                   <img
                     src={generatedImage || "/nanobanana-after.jpg"}
-                    className="w-full h-full object-contain opacity-80 transition-opacity duration-500 group-hover:opacity-100"
+                    className="w-full h-full object-cover opacity-80 transition-opacity duration-500 group-hover:opacity-100"
                     alt="Proposed Blueprint"
                   />
 
                   {blueprintData.modifications.map((mod, i) => (
                     <div
                       key={i}
-                      className="absolute group z-10 transition-transform hover:scale-125"
-                      style={{ top: `${mod.y}%`, left: `${mod.x}%` }}
+                      className="absolute group z-10 transition-transform hover:scale-125 -translate-x-1/2 -translate-y-1/2"
+                      style={{ top: `${clampPct(mod.y)}%`, left: `${clampPct(mod.x)}%` }}
                     >
                       {/* Pulsing Dot */}
                       <div className={`w-8 h-8 rounded-full animate-ping absolute -top-1 -left-1 opacity-75 ${activeTooltip === i ? 'bg-emerald-400' : 'bg-emerald-500'}`}></div>
