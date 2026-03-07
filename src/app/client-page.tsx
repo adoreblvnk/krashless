@@ -14,7 +14,7 @@ import {
   Users,
   AlertOctagon
 } from "lucide-react";
-import { HOTSPOT, LTA_ZONING_DATA, INITIAL_LIVE_STATS } from "@/data/mockData";
+import { HOTSPOT, LTA_ZONING_DATA, INITIAL_LIVE_STATS, SINGAPORE_MAP_VIEW } from "@/data/mockData";
 import { generateBlueprint, type BlueprintResponse } from "./actions";
 import { GmpMap3D } from "@/components/GmpMap3D";
 
@@ -27,6 +27,7 @@ export default function CommandCenter() {
   const [blueprintData, setBlueprintData] = useState<BlueprintResponse | null>(null);
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
   const [activeTooltip, setActiveTooltip] = useState<number | null>(null);
+  const [mapClickStep, setMapClickStep] = useState<0 | 1>(0);
 
   // Live Stats Ticker
   useEffect(() => {
@@ -100,13 +101,27 @@ export default function CommandCenter() {
               className="absolute inset-0"
             >
               <GmpMap3D
-                center={{ lat: HOTSPOT.lat, lng: HOTSPOT.lng, altitude: 0 }}
-                tilt={45}
+                center={SINGAPORE_MAP_VIEW}
+                tilt={30}
                 heading={0}
-                range={500}
+                range={22000}
                 className="w-full h-full relative"
-                marker={{ position: { lat: HOTSPOT.lat, lng: HOTSPOT.lng, altitude: 0 } }}
-                onMarkerClick={() => setViewState("live-cctv")}
+                marker={{
+                  position: { lat: HOTSPOT.lat, lng: HOTSPOT.lng, altitude: 0 },
+                  label: HOTSPOT.name,
+                }}
+                flyToMarkerOnClick
+                flyToMarkerDurationMs={2400}
+                flyToMarkerTilt={55}
+                flyToMarkerRange={650}
+                showMarkerDetails={mapClickStep === 1}
+                onMarkerClick={() => {
+                  if (mapClickStep === 0) {
+                    setMapClickStep(1);
+                    return;
+                  }
+                  setViewState("live-cctv");
+                }}
               />
               
               {/* HUD Elements */}
@@ -132,7 +147,10 @@ export default function CommandCenter() {
             >
               <div className="flex items-center gap-3">
                 <button 
-                  onClick={() => setViewState("map")}
+                  onClick={() => {
+                    setViewState("map");
+                    setMapClickStep(0);
+                  }}
                   className="text-slate-400 hover:text-white transition-colors flex items-center gap-1"
                 >
                   <span>&larr;</span> Back to Macro View

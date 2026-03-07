@@ -5,6 +5,12 @@ export const HOTSPOT = {
   lng: 103.8898611 
 };
 
+export const SINGAPORE_MAP_VIEW = {
+  lat: 1.3521,
+  lng: 103.8198,
+  altitude: 0,
+};
+
 export const LTA_ZONING_DATA = {
   zone_type: "School Zone (Proximity to Montfort Secondary & Junior School)",
   demographics: "High elderly population (Block 535), heavy student foot traffic during peak hours.",
