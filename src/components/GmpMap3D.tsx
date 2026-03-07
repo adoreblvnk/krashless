@@ -4,8 +4,10 @@ import React, { useEffect, useState, useRef } from "react";
 import { APIProvider, useMapsLibrary } from "@vis.gl/react-google-maps";
 
 export type MarkerConfig = {
+  id?: string;
   position: { lat: number; lng: number; altitude: number };
   label?: string;
+  thumbnailUrl?: string;
 };
 
 type Maps3DLibrary = {
@@ -44,23 +46,20 @@ function InnerMap3D(props: {
   heading: number;
   range: number;
   className?: string;
-  marker?: MarkerConfig;
-  onMarkerClick?: () => void;
+  markers?: MarkerConfig[];
+  onMarkerClick?: (marker: MarkerConfig) => void;
   flyToMarkerOnClick?: boolean;
   flyToMarkerDurationMs?: number;
   flyToMarkerTilt?: number;
   flyToMarkerRange?: number;
   flyToMarkerHeading?: number;
-  showMarkerDetails?: boolean;
+  showMarkerDetailsId?: string | null;
 }) {
   const maps3d = useMapsLibrary("maps3d");
   const [isDefined, setIsDefined] = useState(false);
   const mapRef = useRef<GmpMap3DElement | null>(null);
-  const markerRef = useRef<HTMLElement | null>(null);
-  const thumbnailMarkerRef = useRef<HTMLElement | null>(null);
-  const labelMarkerRef = useRef<HTMLElement | null>(null);
+  const markersRef = useRef<HTMLElement[]>([]);
   const hasFlownToMarkerRef = useRef(false);
-  // Store callback in a ref so the event listener always sees the latest value
   const onMarkerClickRef = useRef(props.onMarkerClick);
 
   useEffect(() => {
@@ -85,187 +84,165 @@ function InnerMap3D(props: {
     }
   }, [isDefined, props.center, props.tilt, props.heading, props.range]);
 
-  // Imperatively create the interactive marker and attach gmp-click listener
   useEffect(() => {
-    if (!isDefined || !mapRef.current || !props.marker) return;
+    if (!isDefined || !mapRef.current || !props.markers) return;
 
-    // Clean up any previously appended markers
-    if (markerRef.current) {
-      markerRef.current.remove();
-      markerRef.current = null;
-    }
-    if (thumbnailMarkerRef.current) {
-      thumbnailMarkerRef.current.remove();
-      thumbnailMarkerRef.current = null;
-    }
-    if (labelMarkerRef.current) {
-      labelMarkerRef.current.remove();
-      labelMarkerRef.current = null;
-    }
+    markersRef.current.forEach(el => el.remove());
+    markersRef.current = [];
 
-    async function createMarker() {
+    async function createMarkers() {
       const maps3dLib = (await google.maps.importLibrary("maps3d")) as unknown as Maps3DLibrary;
       const Marker3DElement = maps3dLib.Marker3DElement;
       const Marker3DInteractiveElement = maps3dLib.Marker3DInteractiveElement;
 
-      let thumbnailMarker: HTMLElement | null = null;
-      let labelMarker: HTMLElement | null = null;
+      for (const markerConfig of props.markers || []) {
+        let thumbnailMarker: HTMLElement | null = null;
+        let labelMarker: HTMLElement | null = null;
 
-      if (props.showMarkerDetails) {
-        thumbnailMarker = new Marker3DElement({
-          position: { ...props.marker!.position, altitude: props.marker!.position.altitude + 25 },
+        if (props.showMarkerDetailsId === markerConfig.id) {
+          thumbnailMarker = new Marker3DElement({
+            position: { ...markerConfig.position, altitude: markerConfig.position.altitude + 25 },
+            altitudeMode: "RELATIVE_TO_GROUND",
+            sizePreserved: true,
+          });
+
+          labelMarker = new Marker3DElement({
+            position: { ...markerConfig.position, altitude: markerConfig.position.altitude + 68 },
+            altitudeMode: "RELATIVE_TO_GROUND",
+            sizePreserved: true,
+          });
+
+          const thumbnail = document.createElement("img");
+          thumbnail.alt = "Hotspot CCTV thumbnail";
+          const sourceImage = new Image();
+          sourceImage.src = markerConfig.thumbnailUrl || "/mock-cctv.jpg";
+
+          await new Promise<void>((resolve) => {
+            sourceImage.onload = () => resolve();
+            sourceImage.onerror = () => resolve();
+          });
+
+          const canvas = document.createElement("canvas");
+          canvas.width = 144;
+          canvas.height = 88;
+          const context = canvas.getContext("2d");
+
+          if (context) {
+            context.drawImage(sourceImage, 0, 0, canvas.width, canvas.height);
+            thumbnail.src = canvas.toDataURL("image/jpeg", 0.84);
+          } else {
+            thumbnail.src = markerConfig.thumbnailUrl || "/mock-cctv.jpg";
+          }
+
+          thumbnail.width = 144;
+          thumbnail.height = 88;
+          thumbnail.style.cssText = "display:block;width:72px;height:44px;object-fit:cover;border-radius:5px;border:1.5px solid rgba(255,255,255,0.95);background:#0f172a;";
+
+          const thumbTemplate = document.createElement("template");
+          thumbTemplate.content.append(thumbnail);
+          thumbnailMarker.append(thumbTemplate);
+
+          const locationLabel = markerConfig.label ?? "Hougang Ave 8 (Blk 535 Intersection)";
+          const displayLabel = locationLabel.length > 34 ? `${locationLabel.slice(0, 31)}...` : locationLabel;
+
+          const labelSvgNs = "http://www.w3.org/2000/svg";
+          const labelSvg = document.createElementNS(labelSvgNs, "svg");
+          labelSvg.setAttribute("width", "220");
+          labelSvg.setAttribute("height", "34");
+          labelSvg.setAttribute("viewBox", "0 0 220 34");
+
+          const labelBg = document.createElementNS(labelSvgNs, "rect");
+          labelBg.setAttribute("x", "0");
+          labelBg.setAttribute("y", "0");
+          labelBg.setAttribute("width", "220");
+          labelBg.setAttribute("height", "34");
+          labelBg.setAttribute("rx", "8");
+          labelBg.setAttribute("fill", "rgba(2,6,23,0.88)");
+          labelBg.setAttribute("stroke", "rgba(248,250,252,0.75)");
+          labelBg.setAttribute("stroke-width", "1");
+          labelSvg.appendChild(labelBg);
+
+          const labelText = document.createElementNS(labelSvgNs, "text");
+          labelText.setAttribute("x", "110");
+          labelText.setAttribute("y", "22");
+          labelText.setAttribute("text-anchor", "middle");
+          labelText.setAttribute("fill", "#f8fafc");
+          labelText.setAttribute("font-size", "12");
+          labelText.setAttribute("font-family", "Arial, sans-serif");
+          labelText.textContent = displayLabel;
+          labelSvg.appendChild(labelText);
+
+          const labelTemplate = document.createElement("template");
+          labelTemplate.content.append(labelSvg);
+          labelMarker.append(labelTemplate);
+        }
+
+        const markerEl = new Marker3DInteractiveElement({
+          position: markerConfig.position,
           altitudeMode: "RELATIVE_TO_GROUND",
-          sizePreserved: true,
         });
 
-        labelMarker = new Marker3DElement({
-          position: { ...props.marker!.position, altitude: props.marker!.position.altitude + 68 },
-          altitudeMode: "RELATIVE_TO_GROUND",
-          sizePreserved: true,
+        markerEl.addEventListener("gmp-click", () => {
+          console.log("[Krashless] gmp-click fired on Marker3DInteractiveElement");
+          if (!props.flyToMarkerOnClick || !mapRef.current || (hasFlownToMarkerRef.current && props.showMarkerDetailsId === markerConfig.id)) {
+            onMarkerClickRef.current?.(markerConfig);
+            return;
+          }
+
+          const mapEl = mapRef.current;
+          if (typeof mapEl.flyCameraTo !== "function") {
+            onMarkerClickRef.current?.(markerConfig);
+            return;
+          }
+
+          hasFlownToMarkerRef.current = true;
+          mapEl.flyCameraTo({
+            endCamera: {
+              center: markerConfig.position,
+              tilt: props.flyToMarkerTilt ?? 55,
+              heading: props.flyToMarkerHeading ?? props.heading,
+              range: props.flyToMarkerRange ?? 700,
+            },
+            durationMillis: props.flyToMarkerDurationMs ?? 2200,
+          });
+
+          mapEl.addEventListener(
+            "gmp-animationend",
+            () => {
+              onMarkerClickRef.current?.(markerConfig);
+            },
+            { once: true },
+          );
         });
 
-        const thumbnail = document.createElement("img");
-        thumbnail.alt = "Hotspot CCTV thumbnail";
-        const sourceImage = new Image();
-        sourceImage.src = "/mock-cctv.jpg";
-
-        await new Promise<void>((resolve) => {
-          sourceImage.onload = () => resolve();
-          sourceImage.onerror = () => resolve();
-        });
-
-        const canvas = document.createElement("canvas");
-        canvas.width = 144;
-        canvas.height = 88;
-        const context = canvas.getContext("2d");
-
-        if (context) {
-          context.drawImage(sourceImage, 0, 0, canvas.width, canvas.height);
-          thumbnail.src = canvas.toDataURL("image/jpeg", 0.84);
-        } else {
-          thumbnail.src = "/mock-cctv.jpg";
+        if (labelMarker) {
+          mapRef.current!.append(labelMarker);
+          markersRef.current.push(labelMarker);
         }
-
-        thumbnail.width = 144;
-        thumbnail.height = 88;
-        thumbnail.style.cssText = "display:block;width:72px;height:44px;object-fit:cover;border-radius:5px;border:1.5px solid rgba(255,255,255,0.95);background:#0f172a;";
-
-        const thumbTemplate = document.createElement("template");
-        thumbTemplate.content.append(thumbnail);
-        thumbnailMarker.append(thumbTemplate);
-
-        const locationLabel = props.marker?.label ?? "Hougang Ave 8 (Blk 535 Intersection)";
-        const displayLabel =
-          locationLabel.length > 34 ? `${locationLabel.slice(0, 31)}...` : locationLabel;
-
-        const labelSvgNs = "http://www.w3.org/2000/svg";
-        const labelSvg = document.createElementNS(labelSvgNs, "svg");
-        labelSvg.setAttribute("width", "220");
-        labelSvg.setAttribute("height", "34");
-        labelSvg.setAttribute("viewBox", "0 0 220 34");
-
-        const labelBg = document.createElementNS(labelSvgNs, "rect");
-        labelBg.setAttribute("x", "0");
-        labelBg.setAttribute("y", "0");
-        labelBg.setAttribute("width", "220");
-        labelBg.setAttribute("height", "34");
-        labelBg.setAttribute("rx", "8");
-        labelBg.setAttribute("fill", "rgba(2,6,23,0.88)");
-        labelBg.setAttribute("stroke", "rgba(248,250,252,0.75)");
-        labelBg.setAttribute("stroke-width", "1");
-        labelSvg.appendChild(labelBg);
-
-        const labelText = document.createElementNS(labelSvgNs, "text");
-        labelText.setAttribute("x", "110");
-        labelText.setAttribute("y", "22");
-        labelText.setAttribute("text-anchor", "middle");
-        labelText.setAttribute("fill", "#f8fafc");
-        labelText.setAttribute("font-size", "12");
-        labelText.setAttribute("font-family", "Arial, sans-serif");
-        labelText.textContent = displayLabel;
-        labelSvg.appendChild(labelText);
-
-        const labelTemplate = document.createElement("template");
-        labelTemplate.content.append(labelSvg);
-        labelMarker.append(labelTemplate);
-      }
-
-      const marker = new Marker3DInteractiveElement({
-        position: props.marker!.position,
-        altitudeMode: "RELATIVE_TO_GROUND",
-      });
-
-      // Attach the gmp-click event — this is the official way per Google docs
-      marker.addEventListener("gmp-click", () => {
-        console.log("[Krashless] gmp-click fired on Marker3DInteractiveElement");
-        if (!props.flyToMarkerOnClick || !mapRef.current || hasFlownToMarkerRef.current) {
-          onMarkerClickRef.current?.();
-          return;
+        if (thumbnailMarker) {
+          mapRef.current!.append(thumbnailMarker);
+          markersRef.current.push(thumbnailMarker);
         }
-
-        const mapEl = mapRef.current;
-        if (typeof mapEl.flyCameraTo !== "function") {
-          onMarkerClickRef.current?.();
-          return;
-        }
-
-        hasFlownToMarkerRef.current = true;
-        mapEl.flyCameraTo({
-          endCamera: {
-            center: props.marker!.position,
-            tilt: props.flyToMarkerTilt ?? 55,
-            heading: props.flyToMarkerHeading ?? props.heading,
-            range: props.flyToMarkerRange ?? 700,
-          },
-          durationMillis: props.flyToMarkerDurationMs ?? 2200,
-        });
-
-        mapEl.addEventListener(
-          "gmp-animationend",
-          () => {
-            onMarkerClickRef.current?.();
-          },
-          { once: true },
-        );
-      });
-
-      if (labelMarker) {
-        mapRef.current!.append(labelMarker);
+        mapRef.current!.append(markerEl);
+        markersRef.current.push(markerEl as unknown as HTMLElement);
       }
-      if (thumbnailMarker) {
-        mapRef.current!.append(thumbnailMarker);
-      }
-      mapRef.current!.append(marker);
-      labelMarkerRef.current = labelMarker;
-      thumbnailMarkerRef.current = thumbnailMarker;
-      markerRef.current = marker as unknown as HTMLElement;
     }
 
-    createMarker();
+    createMarkers();
 
     return () => {
-      if (markerRef.current) {
-        markerRef.current.remove();
-        markerRef.current = null;
-      }
-      if (thumbnailMarkerRef.current) {
-        thumbnailMarkerRef.current.remove();
-        thumbnailMarkerRef.current = null;
-      }
-      if (labelMarkerRef.current) {
-        labelMarkerRef.current.remove();
-        labelMarkerRef.current = null;
-      }
+      markersRef.current.forEach(el => el.remove());
+      markersRef.current = [];
     };
   }, [
     isDefined,
-    props.marker,
+    props.markers,
     props.flyToMarkerOnClick,
     props.flyToMarkerDurationMs,
     props.flyToMarkerTilt,
     props.flyToMarkerRange,
     props.flyToMarkerHeading,
-    props.showMarkerDetails,
+    props.showMarkerDetailsId,
     props.heading,
   ]);
 
@@ -282,14 +259,14 @@ export function GmpMap3D(props: {
   heading: number;
   range: number;
   className?: string;
-  marker?: MarkerConfig;
-  onMarkerClick?: () => void;
+  markers?: MarkerConfig[];
+  onMarkerClick?: (marker: MarkerConfig) => void;
   flyToMarkerOnClick?: boolean;
   flyToMarkerDurationMs?: number;
   flyToMarkerTilt?: number;
   flyToMarkerRange?: number;
   flyToMarkerHeading?: number;
-  showMarkerDetails?: boolean;
+  showMarkerDetailsId?: string | null;
 }) {
   return (
     <APIProvider apiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY as string} version="alpha">

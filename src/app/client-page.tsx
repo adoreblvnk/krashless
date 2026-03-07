@@ -16,7 +16,7 @@ import {
   History,
   DollarSign
 } from "lucide-react";
-import { HOTSPOT, LTA_ZONING_DATA, INITIAL_LIVE_STATS, SINGAPORE_MAP_VIEW } from "@/data/mockData";
+import { HOTSPOTS, INITIAL_LIVE_STATS, SINGAPORE_MAP_VIEW } from "@/data/mockData";
 import { generateBlueprint, type BlueprintResponse } from "./actions";
 import { GmpMap3D } from "@/components/GmpMap3D";
 
@@ -36,7 +36,9 @@ export default function CommandCenter() {
     data: BlueprintResponse;
     image: string | null;
   }[]>([]);
-  const [mapClickStep, setMapClickStep] = useState<0 | 1>(0);
+  const [selectedHotspotId, setSelectedHotspotId] = useState<string | null>(null);
+
+  const activeHotspot = HOTSPOTS.find(h => h.id === selectedHotspotId) || HOTSPOTS[0];
 
   // Live Stats Ticker
   useEffect(() => {
@@ -58,7 +60,7 @@ export default function CommandCenter() {
     const logs = [
       "Initializing AI Evaluation Protocol...",
       "Ingesting Spatial Data from Google Earth Engine...",
-      `Evaluating Hazard Vectors (Red light violations: ${LTA_ZONING_DATA.violations_ytd.red_light})...`,
+      `Evaluating Hazard Vectors (Red light violations: ${activeHotspot.zoning.violations_ytd.red_light})...`,
       "Simulating Pedestrian Density Flow...",
       "Generating Proposed Infrastructure Delta via Nano Banana & Gemini 3.1 Pro Preview..."
     ];
@@ -78,7 +80,7 @@ export default function CommandCenter() {
     setPastEvaluations(prev => [
       {
         id: Math.random().toString(36).substr(2, 9),
-        label: HOTSPOT.name,
+        label: activeHotspot.name,
         timestamp: new Date(),
         data: result.data,
         image: result.imageBase64
@@ -143,18 +145,20 @@ export default function CommandCenter() {
                 heading={0}
                 range={22000}
                 className="w-full h-full relative"
-                marker={{
-                  position: { lat: HOTSPOT.lat, lng: HOTSPOT.lng, altitude: 0 },
-                  label: HOTSPOT.name,
-                }}
+                markers={HOTSPOTS.map((h) => ({
+                  id: h.id,
+                  position: { lat: h.lat, lng: h.lng, altitude: 0 },
+                  label: h.name,
+                  thumbnailUrl: h.poster,
+                }))}
                 flyToMarkerOnClick
                 flyToMarkerDurationMs={2400}
                 flyToMarkerTilt={55}
                 flyToMarkerRange={650}
-                showMarkerDetails={mapClickStep === 1}
-                onMarkerClick={() => {
-                  if (mapClickStep === 0) {
-                    setMapClickStep(1);
+                showMarkerDetailsId={selectedHotspotId}
+                onMarkerClick={(marker) => {
+                  if (selectedHotspotId !== marker.id) {
+                    setSelectedHotspotId(marker.id || null);
                     return;
                   }
                   setViewState("live-cctv");
@@ -186,7 +190,7 @@ export default function CommandCenter() {
                 <button 
                   onClick={() => {
                     setViewState("map");
-                    setMapClickStep(0);
+                    setSelectedHotspotId(null);
                   }}
                   className="text-slate-400 hover:text-white transition-colors flex items-center gap-1"
                 >
@@ -194,7 +198,7 @@ export default function CommandCenter() {
                 </button>
                 <h2 className="text-2xl font-bold flex items-center gap-3 text-slate-100">
                   <MapPin className="text-red-500" />
-                  Intersection: {HOTSPOT.name}
+                  Intersection: {activeHotspot.name}
                 </h2>
               </div>
 
@@ -206,8 +210,8 @@ export default function CommandCenter() {
                     LIVE
                   </div>
                   <video
-                    src="/mock-cctv.mp4"
-                    poster="/mock-cctv.jpg"
+                    src={activeHotspot.video}
+                    poster={activeHotspot.poster}
                     autoPlay
                     loop
                     muted
@@ -216,7 +220,7 @@ export default function CommandCenter() {
                   />
                   <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent p-4 pt-12">
                     <div className="flex items-center gap-6 text-slate-300 text-sm font-mono">
-                      <span className="flex items-center gap-2"><Camera className="w-4 h-4 text-slate-400" /> CAM-HG8-01</span>
+                      <span className="flex items-center gap-2"><Camera className="w-4 h-4 text-slate-400" /> CAM-{activeHotspot.id.toUpperCase()}</span>
                       <span className="flex items-center gap-2"><Clock className="w-4 h-4 text-slate-400" /> {new Date().toLocaleTimeString()}</span>
                     </div>
                   </div>
@@ -229,13 +233,13 @@ export default function CommandCenter() {
                       <div className="flex items-center gap-2 text-slate-400 font-semibold mb-3 text-sm tracking-wide uppercase">
                         <Users className="w-4 h-4 text-blue-400" /> Demographics
                       </div>
-                      <p className="text-sm text-slate-300 leading-relaxed">{LTA_ZONING_DATA.demographics}</p>
+                      <p className="text-sm text-slate-300 leading-relaxed">{activeHotspot.zoning.demographics}</p>
                     </div>
                     <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-lg">
                       <div className="flex items-center gap-2 text-slate-400 font-semibold mb-3 text-sm tracking-wide uppercase">
                         <AlertOctagon className="w-4 h-4 text-purple-400" /> Zone Type
                       </div>
-                      <p className="text-sm text-slate-300 leading-relaxed">{LTA_ZONING_DATA.zone_type}</p>
+                      <p className="text-sm text-slate-300 leading-relaxed">{activeHotspot.zoning.zone_type}</p>
                     </div>
                   </div>
 
@@ -244,20 +248,20 @@ export default function CommandCenter() {
                     <h3 className="text-lg font-bold text-red-400 flex items-center gap-2 mb-3">
                       <AlertTriangle className="w-5 h-5" /> Hazard Profile
                     </h3>
-                    <p className="text-sm mb-5 text-slate-300 border-l-2 border-red-500/30 pl-3">{LTA_ZONING_DATA.historical_incidents}</p>
+                    <p className="text-sm mb-5 text-slate-300 border-l-2 border-red-500/30 pl-3">{activeHotspot.zoning.historical_incidents}</p>
 
                     <div className="grid grid-cols-3 gap-4">
                       <div className="bg-slate-950 p-3 rounded-lg border border-slate-800/80 shadow-inner">
                         <div className="text-[10px] uppercase font-bold text-slate-500 mb-1 tracking-wider">Red Light Violations</div>
-                        <div className="text-2xl font-bold text-red-400 font-mono">{LTA_ZONING_DATA.violations_ytd.red_light}</div>
+                        <div className="text-2xl font-bold text-red-400 font-mono">{activeHotspot.zoning.violations_ytd.red_light}</div>
                       </div>
                       <div className="bg-slate-950 p-3 rounded-lg border border-slate-800/80 shadow-inner">
                         <div className="text-[10px] uppercase font-bold text-slate-500 mb-1 tracking-wider">Speeding Violations</div>
-                        <div className="text-2xl font-bold text-orange-400 font-mono">{LTA_ZONING_DATA.violations_ytd.speeding}</div>
+                        <div className="text-2xl font-bold text-orange-400 font-mono">{activeHotspot.zoning.violations_ytd.speeding}</div>
                       </div>
                       <div className="bg-slate-950 p-3 rounded-lg border border-slate-800/80 shadow-inner">
                         <div className="text-[10px] uppercase font-bold text-slate-500 mb-1 tracking-wider">Red Light Duration</div>
-                        <div className="text-2xl font-bold text-slate-200 font-mono">{LTA_ZONING_DATA.light_duration_sec.red}s</div>
+                        <div className="text-2xl font-bold text-slate-200 font-mono">{activeHotspot.zoning.light_duration_sec.red}s</div>
                       </div>
                     </div>
                   </div>
@@ -352,7 +356,7 @@ export default function CommandCenter() {
                 </button>
                 <h2 className="text-2xl font-bold flex items-center gap-3 text-emerald-400">
                   <Shield className="text-emerald-500 w-7 h-7" />
-                  Intersection: {HOTSPOT.name} - Proposed Infrastructure Delta
+                  Intersection: {activeHotspot.name} - Proposed Infrastructure Delta
                 </h2>
               </div>
 
