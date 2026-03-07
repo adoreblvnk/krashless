@@ -14,10 +14,14 @@ import {
   Users,
   AlertOctagon,
   History,
-  DollarSign
+  DollarSign,
+  Check,
+  X,
+  MessageSquare,
+  Loader2
 } from "lucide-react";
 import { HOTSPOTS, INITIAL_LIVE_STATS, SINGAPORE_MAP_VIEW } from "@/data/mockData";
-import { generateBlueprint, type BlueprintResponse } from "./actions";
+import { generateBlueprint, generateAlternative, type BlueprintResponse } from "./actions";
 import { GmpMap3D } from "@/components/GmpMap3D";
 
 export default function CommandCenter() {
@@ -35,10 +39,16 @@ export default function CommandCenter() {
     timestamp: Date;
     data: BlueprintResponse;
     image: string | null;
+    modStatuses: ModStatus[];
   }[]>([]);
   const [selectedHotspotId, setSelectedHotspotId] = useState<string | null>(null);
+  const [activeEvaluationId, setActiveEvaluationId] = useState<string | null>(null);
 
   const activeHotspot = HOTSPOTS.find(h => h.id === selectedHotspotId) || HOTSPOTS[0];
+
+  // Review Status State
+  type ModStatus = { status: "pending" | "accepted" | "rejecting" | "generating" | "rejected", rejectReason: string };
+  const [modStatuses, setModStatuses] = useState<ModStatus[]>([]);
 
   // Live Stats Ticker
   useEffect(() => {
@@ -75,15 +85,21 @@ export default function CommandCenter() {
     // Server Action
     const result = await generateBlueprint();
     setBlueprintData(result.data);
+    const initialModStatuses: ModStatus[] = result.data.modifications.map(() => ({ status: "pending", rejectReason: "Bollards might block a specific turning radius for SBS double-deckers." }));
+    setModStatuses(initialModStatuses);
     if (result.imageBase64) setGeneratedImage(result.imageBase64);
+
+    const newId = Math.random().toString(36).substr(2, 9);
+    setActiveEvaluationId(newId);
 
     setPastEvaluations(prev => [
       {
-        id: Math.random().toString(36).substr(2, 9),
+        id: newId,
         label: activeHotspot.name,
         timestamp: new Date(),
         data: result.data,
-        image: result.imageBase64
+        image: result.imageBase64,
+        modStatuses: initialModStatuses
       },
       ...prev
     ]);
@@ -92,10 +108,61 @@ export default function CommandCenter() {
   };
 
   const loadPastEvaluation = (record: any) => {
+    setActiveEvaluationId(record.id);
     setBlueprintData(record.data);
+    setModStatuses(record.modStatuses || record.data.modifications.map(() => ({ status: "pending", rejectReason: "Bollards might block a specific turning radius for SBS double-deckers." })));
     setGeneratedImage(record.image);
     setActiveTooltip(null);
     setViewState("blueprint");
+  };
+
+  const updateModStatus = (index: number, newStatus: Partial<ModStatus>) => {
+    setModStatuses(prev => {
+      const copy = [...prev];
+      copy[index] = { ...copy[index], ...newStatus };
+      
+      // Sync immediately to past evaluations
+      setPastEvaluations(prevEvals => prevEvals.map(ev => 
+        ev.id === activeEvaluationId ? { ...ev, modStatuses: copy } : ev
+      ));
+
+      return copy;
+    });
+  };
+
+  const handleRejectSubmit = async (index: number) => {
+    if (!blueprintData) return;
+    
+    const reason = modStatuses[index].rejectReason;
+    updateModStatus(index, { status: "generating" });
+    
+    // Call server action for alternative
+    const alternative = await generateAlternative(blueprintData.modifications[index] as any, reason);
+    
+    // Replace the modification with the new AI alternative
+    let newData: BlueprintResponse | null = null;
+    setBlueprintData(prev => {
+      if (!prev) return prev;
+      const newMods = [...prev.modifications];
+      newMods[index] = alternative;
+      newData = { ...prev, modifications: newMods };
+      return newData;
+    });
+    
+    // Reset status and sync both the new AI data and status into past evaluations
+    setModStatuses(prev => {
+      const copy = [...prev];
+      copy[index] = { status: "pending", rejectReason: "Bollards might block a specific turning radius for SBS double-deckers." };
+      
+      setPastEvaluations(prevEvals => prevEvals.map(ev => {
+        if (ev.id === activeEvaluationId && newData) {
+          return { ...ev, data: newData, modStatuses: copy };
+        }
+        return ev;
+      }));
+
+      return copy;
+    });
   };
 
   return (
@@ -444,6 +511,76 @@ export default function CommandCenter() {
                                 </span>
                               </div>
                             </div>
+
+                            {/* LTA Officer Review Panel */}
+                            {activeTooltip === i && modStatuses[i] && (
+                              <div className="mt-2 flex flex-col gap-3 animation-fade-in border-t border-slate-700/50 pt-3">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                                    LTA Officer Review
+                                  </span>
+                                  {modStatuses[i].status === "accepted" && (
+                                    <span className="text-xs font-bold text-emerald-400 flex items-center gap-1 bg-emerald-950/30 px-2 py-0.5 rounded border border-emerald-900/50">
+                                      <Check className="w-3 h-3" /> Approved
+                                    </span>
+                                  )}
+                                </div>
+
+                                {modStatuses[i].status === "pending" && (
+                                  <div className="flex items-center gap-2">
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); updateModStatus(i, { status: "accepted" }); }}
+                                      className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium transition-colors"
+                                    >
+                                      <Check className="w-4 h-4" /> Accept
+                                    </button>
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); updateModStatus(i, { status: "rejecting" }); }}
+                                      className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded bg-slate-800 hover:bg-slate-700 text-red-400 border border-slate-700 hover:border-slate-600 text-sm font-medium transition-colors"
+                                    >
+                                      <X className="w-4 h-4" /> Reject & Revise
+                                    </button>
+                                  </div>
+                                )}
+
+                                {modStatuses[i].status === "rejecting" && (
+                                  <div className="flex flex-col gap-2" onClick={(e) => e.stopPropagation()}>
+                                    <div className="relative">
+                                      <MessageSquare className="w-4 h-4 text-slate-500 absolute top-2.5 left-2.5" />
+                                      <textarea
+                                        value={modStatuses[i].rejectReason}
+                                        onChange={(e) => updateModStatus(i, { rejectReason: e.target.value })}
+                                        className="w-full bg-slate-950 border border-slate-700 rounded-lg py-2 pl-9 pr-3 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 block resize-none h-16"
+                                        placeholder="Enter technical reason for rejection..."
+                                      />
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <button
+                                        onClick={() => updateModStatus(i, { status: "pending" })}
+                                        className="flex-1 py-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-sm font-medium transition-colors"
+                                      >
+                                        Cancel
+                                      </button>
+                                      <button
+                                        onClick={() => handleRejectSubmit(i)}
+                                        className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded bg-red-600 hover:bg-red-500 text-white text-sm font-medium transition-colors"
+                                      >
+                                        <Zap className="w-4 h-4" /> Generate Alternative
+                                      </button>
+                                    </div>
+                                  </div>
+                                )}
+
+                                {modStatuses[i].status === "generating" && (
+                                  <div className="flex flex-col items-center justify-center py-4 bg-slate-900/50 rounded-lg border border-slate-800 border-dashed">
+                                    <Loader2 className="w-6 h-6 text-emerald-500 animate-spin mb-2" />
+                                    <span className="text-xs text-slate-400 font-medium text-center">
+                                      Processing LTA feedback...<br/>Generating alternative structure.
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>

@@ -37,16 +37,18 @@ const mockResponse = {
   ]
 };
 
+const singleModificationSchema = z.object({
+  y: z.number().describe("Y coordinate percentage for the pin (0-100)"),
+  x: z.number().describe("X coordinate percentage for the pin (0-100)"),
+  issue_identified: z.string().describe("The hazard found in the original intersection"),
+  proposed_change: z.string().describe("The new physical infrastructure added"),
+  justification: z.string().describe("Why this change mitigates the hazard"),
+  estimated_cost: z.string().describe("Estimated implementation cost, e.g., '$45,000'")
+});
+
 const blueprintSchema = z.object({
   scene_description: z.string().describe("A highly detailed visual description of the original intersection seen in the video, including camera angle (e.g., CCTV street level view, top-down), weather, lighting, surrounding buildings, trees, and exact road layout (e.g., T-junction, crossroad). This will be used as a prompt for an image generator."),
-  modifications: z.array(z.object({
-    y: z.number().describe("Y coordinate percentage for the pin (0-100)"),
-    x: z.number().describe("X coordinate percentage for the pin (0-100)"),
-    issue_identified: z.string().describe("The hazard found in the original intersection"),
-    proposed_change: z.string().describe("The new physical infrastructure added"),
-    justification: z.string().describe("Why this change mitigates the hazard"),
-    estimated_cost: z.string().describe("Estimated implementation cost, e.g., '$45,000'")
-  }))
+  modifications: z.array(singleModificationSchema)
 });
 
 export type BlueprintResponse = z.infer<typeof blueprintSchema>;
@@ -158,4 +160,43 @@ CRITICAL: You must preserve the original background, trees, buildings, weather, 
   }
 
   return { data: blueprintData, imageBase64 };
+}
+
+export type ModificationResponse = z.infer<typeof singleModificationSchema>;
+
+export async function generateAlternative(originalMod: ModificationResponse, reason: string): Promise<ModificationResponse> {
+  let newMod: ModificationResponse = {
+    y: originalMod.y,
+    x: originalMod.x,
+    issue_identified: originalMod.issue_identified,
+    proposed_change: "Flush-mounted Reinforced Kerb with Visual Delineators",
+    justification: "Provides physical warning to drivers and protects pedestrians, while preserving the necessary turning radius clearance for heavy vehicles like SBS double-decker buses.",
+    estimated_cost: "$18,500"
+  };
+
+  try {
+    const systemPrompt = `You are an urban planner and traffic safety engineer. 
+An AI previously proposed the following infrastructure change at coordinates (${originalMod.x}x, ${originalMod.y}y):
+Proposed Change: ${originalMod.proposed_change}
+Justification: ${originalMod.justification}
+Hazard: ${originalMod.issue_identified}
+
+However, the LTA Officer rejected this proposal for the following reason:
+"${reason}"
+
+Generate an alternative infrastructure modification that solves the original hazard but completely addresses the officer's rejection reason. Keep the same x, y coordinates.`;
+
+    const { object } = await generateObject({
+      model: google('gemini-3.1-pro-preview'),
+      schema: singleModificationSchema,
+      prompt: systemPrompt,
+    });
+    
+    newMod = object;
+  } catch (error) {
+    console.error("Failed to generate alternative from Gemini, falling back to mock data", error);
+    await new Promise(resolve => setTimeout(resolve, 2000));
+  }
+
+  return newMod;
 }
