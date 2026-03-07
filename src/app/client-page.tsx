@@ -105,33 +105,9 @@ export default function CommandCenter() {
                 heading={0}
                 range={500}
                 className="w-full h-full relative"
-              >
-                {/* 3D Marker */}
-                {/* @ts-ignore */}
-                <gmp-marker-3d 
-                  position={{ lat: HOTSPOT.lat, lng: HOTSPOT.lng, altitude: 0 }} 
-                  altitude-mode="RELATIVE_TO_GROUND"
-                >
-                  <div 
-                    slot="content"
-                    className="group relative pointer-events-auto cursor-pointer flex flex-col items-center mt-[-40px]"
-                    onClick={() => setViewState("live-cctv")}
-                  >
-                    <div className="absolute w-24 h-24 bg-red-500/20 rounded-full animate-ping" />
-                    <div className="absolute w-12 h-12 bg-red-500/40 rounded-full animate-pulse" />
-                    <div className="w-10 h-10 bg-red-600 border-2 border-white rounded-full flex items-center justify-center z-10 shadow-[0_0_15px_rgba(239,68,68,0.8)]">
-                      <AlertTriangle className="w-5 h-5 text-white" />
-                    </div>
-                    
-                    {/* Tooltip */}
-                    <div className="absolute top-full mt-4 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap bg-slate-900 border border-red-500/50 text-slate-100 px-4 py-2 rounded shadow-xl">
-                      <p className="font-semibold text-red-400">High-Risk Intersection Identified</p>
-                      <p className="text-xs text-slate-400 mt-1">Click to view live spatial data</p>
-                    </div>
-                  </div>
-                {/* @ts-ignore */}
-                </gmp-marker-3d>
-              </GmpMap3D>
+                marker={{ position: { lat: HOTSPOT.lat, lng: HOTSPOT.lng, altitude: 0 } }}
+                onMarkerClick={() => setViewState("live-cctv")}
+              />
               
               {/* HUD Elements */}
               <div className="absolute bottom-6 left-6 bg-slate-900/80 backdrop-blur border border-slate-800 p-4 rounded-xl max-w-sm pointer-events-none">
