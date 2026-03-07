@@ -109,7 +109,7 @@ export default function CommandCenter() {
 
   const resetToHome = () => {
     setViewState("map");
-    setMapClickStep(0);
+    setSelectedHotspotId(null);
     setActiveTooltip(null);
   };
 
