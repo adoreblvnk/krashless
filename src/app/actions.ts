@@ -15,21 +15,24 @@ const mockResponse = {
       x: 35, 
       issue_identified: "High pedestrian exposure due to 90s red light.", 
       proposed_change: "Elevated Pedestrian Refuge Island", 
-      justification: "Accommodates slower elderly walking speeds from Blk 535 and students from Montfort." 
+      justification: "Accommodates slower elderly walking speeds from Blk 535 and students from Montfort.",
+      estimated_cost: "$45,000"
     },
     { 
       y: 85, 
       x: 20, 
       issue_identified: "Vehicles swerving/crashing can easily mount the flush pavement at the pedestrian crossing.", 
       proposed_change: "Impact-Resistant Steel Bollards", 
-      justification: "Creates a physical barrier to protect waiting pedestrians from errant vehicles, preventing pavement mounting." 
+      justification: "Creates a physical barrier to protect waiting pedestrians from errant vehicles, preventing pavement mounting.",
+      estimated_cost: "$12,500"
     },
     { 
       y: 75, 
       x: 80, 
       issue_identified: "Speeding slip road (87 violations).", 
       proposed_change: "Narrowed slip road with textured speed bumps", 
-      justification: "Forces heavy vehicles to slow down before the zebra crossing." 
+      justification: "Forces heavy vehicles to slow down before the zebra crossing.",
+      estimated_cost: "$28,000"
     }
   ]
 };
@@ -41,7 +44,8 @@ const blueprintSchema = z.object({
     x: z.number().describe("X coordinate percentage for the pin (0-100)"),
     issue_identified: z.string().describe("The hazard found in the original intersection"),
     proposed_change: z.string().describe("The new physical infrastructure added"),
-    justification: z.string().describe("Why this change mitigates the hazard")
+    justification: z.string().describe("Why this change mitigates the hazard"),
+    estimated_cost: z.string().describe("Estimated implementation cost, e.g., '$45,000'")
   }))
 });
 
