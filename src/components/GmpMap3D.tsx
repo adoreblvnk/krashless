@@ -66,7 +66,7 @@ function InnerMap3D(props: {
   useEffect(() => {
     onMarkerClickRef.current = props.onMarkerClick;
   }, [props.onMarkerClick]);
-  
+
   useEffect(() => {
     if (!maps3d) return;
     customElements.whenDefined("gmp-map-3d").then(() => {

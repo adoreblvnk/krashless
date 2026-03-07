@@ -105,6 +105,12 @@ export default function CommandCenter() {
     setViewState("blueprint");
   };
 
+  const resetToHome = () => {
+    setViewState("map");
+    setMapClickStep(0);
+    setActiveTooltip(null);
+  };
+
   const loadPastEvaluation = (record: any) => {
     setActiveEvaluationId(record.id);
     setBlueprintData(record.data);
@@ -118,9 +124,9 @@ export default function CommandCenter() {
     setModStatuses(prev => {
       const copy = [...prev];
       copy[index] = { ...copy[index], ...newStatus };
-      
+
       // Sync immediately to past evaluations
-      setPastEvaluations(prevEvals => prevEvals.map(ev => 
+      setPastEvaluations(prevEvals => prevEvals.map(ev =>
         ev.id === activeEvaluationId ? { ...ev, modStatuses: copy } : ev
       ));
 
@@ -130,13 +136,13 @@ export default function CommandCenter() {
 
   const handleRejectSubmit = async (index: number) => {
     if (!blueprintData) return;
-    
+
     const reason = modStatuses[index].rejectReason;
     updateModStatus(index, { status: "generating" });
-    
+
     // Call server action for alternative
     const alternative = await generateAlternative(blueprintData.modifications[index] as any, reason);
-    
+
     // Replace the modification with the new AI alternative
     let newData: BlueprintResponse | null = null;
     setBlueprintData(prev => {
@@ -146,12 +152,12 @@ export default function CommandCenter() {
       newData = { ...prev, modifications: newMods };
       return newData;
     });
-    
+
     // Reset status and sync both the new AI data and status into past evaluations
     setModStatuses(prev => {
       const copy = [...prev];
       copy[index] = { status: "pending", rejectReason: "Bollards might block a specific turning radius for SBS double-deckers." };
-      
+
       setPastEvaluations(prevEvals => prevEvals.map(ev => {
         if (ev.id === activeEvaluationId && newData) {
           return { ...ev, data: newData, modStatuses: copy };
@@ -168,10 +174,15 @@ export default function CommandCenter() {
       {/* Top Navigation / Branding */}
       <header className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-900/50 backdrop-blur-md z-50">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-md bg-emerald-500 flex items-center justify-center shadow-[0_0_15px_rgba(16,185,129,0.5)]">
-            <Zap className="w-5 h-5 text-slate-950" />
-          </div>
-          <h1 className="text-xl font-bold tracking-tight">Krashless</h1>
+          <button 
+            onClick={resetToHome}
+            className="flex items-center gap-3 hover:opacity-80 transition-opacity group"
+          >
+            <div className="w-8 h-8 rounded-md bg-emerald-500 flex items-center justify-center shadow-[0_0_15px_rgba(16,185,129,0.5)] group-hover:scale-105 transition-transform">
+              <Zap className="w-5 h-5 text-slate-950" />
+            </div>
+            <h1 className="text-xl font-bold tracking-tight">Krashless</h1>
+          </button>
           <span className="px-2 py-1 ml-4 rounded bg-slate-800 text-xs font-medium text-slate-400 border border-slate-700">
             LTA Generative Urban Prototyping
           </span>
@@ -250,11 +261,8 @@ export default function CommandCenter() {
               className="absolute inset-0 p-6 flex flex-col gap-6"
             >
               <div className="flex items-center gap-3">
-                <button 
-                  onClick={() => {
-                    setViewState("map");
-                    setMapClickStep(0);
-                  }}
+                <button
+                  onClick={resetToHome}
                   className="text-slate-400 hover:text-white transition-colors flex items-center gap-1"
                 >
                   <span>&larr;</span> Back to Macro View
@@ -412,7 +420,7 @@ export default function CommandCenter() {
             >
               <div className="flex items-center gap-3">
                 <button
-                  onClick={() => setViewState("live-cctv")}
+                  onClick={resetToHome}
                   className="text-slate-400 hover:text-white transition-colors flex items-center gap-1"
                 >
                   <span>&larr;</span> Back to Home
@@ -474,8 +482,8 @@ export default function CommandCenter() {
                         key={i}
                         onClick={() => setActiveTooltip(i)}
                         className={`p-5 rounded-xl border transition-all cursor-pointer ${activeTooltip === i
-                            ? 'bg-slate-800 border-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.15)] transform scale-[1.02]'
-                            : 'bg-slate-900 border-slate-800 hover:border-slate-700 hover:bg-slate-800/50'
+                          ? 'bg-slate-800 border-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.15)] transform scale-[1.02]'
+                          : 'bg-slate-900 border-slate-800 hover:border-slate-700 hover:bg-slate-800/50'
                           }`}
                       >
                         <div className="flex items-start gap-4">
@@ -571,7 +579,7 @@ export default function CommandCenter() {
                                   <div className="flex flex-col items-center justify-center py-4 bg-slate-900/50 rounded-lg border border-slate-800 border-dashed">
                                     <Loader2 className="w-6 h-6 text-emerald-500 animate-spin mb-2" />
                                     <span className="text-xs text-slate-400 font-medium text-center">
-                                      Processing LTA feedback...<br/>Generating alternative structure.
+                                      Processing LTA feedback...<br />Generating alternative structure.
                                     </span>
                                   </div>
                                 )}
