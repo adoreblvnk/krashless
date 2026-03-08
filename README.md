@@ -1,36 +1,99 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+<div align="center"> <!-- use align as CSS is not allowed on GitHub markdown https://github.com/orgs/community/discussions/22728 -->
+  <img src="public/logo.png" alt="Krashless logo" width=100> <!-- Logo -->
+  <h1>Krashless</h1> <!-- Project Name -->
+  <p> <!-- Description -->
+    An agentic dashboard which makes intersections safer by reimagining proposed modification live <br>
+    2nd Place Winner ($30k) at <a href="https://cerebralvalley.ai/e/gemini-3-singapore-hackathon">Gemini 3 Hackathon Singapore</a> <br>
+    Live Site: <a href="https://krashless.vercel.app">krashless.vercel.app</a> <br>
+  </p>
+  <p> <!-- Built With -->
+    Built With:
+    <a href="https://ai-sdk.dev">AI SDK</a> &bull;
+    <a href="https://ai.google.dev/gemini-api/docs/models/gemini-3.1-pro-preview">Gemini 3.1 Pro</a> &bull;
+    <a href="https://ai.google.dev/gemini-api/docs/models/gemini-3.1-flash-image-preview">Nano Banana 2</a> &bull;
+    <a href="https://developers.google.com/maps/documentation/tile/3d-tiles">Google Maps Photorealistic 3D Tiles</a>
+  </p>
+</div>
+
+---
+
+<details>
+<summary>Table of Contents</summary>
+
+- [About](#about)
+  - [Demo Video](#demo-video)
+- [Features](#features)
+- [Getting Started](#getting-started)
+  - [Prerequisites](#prerequisites)
+  - [Installation](#installation)
+  - [Execution](#execution)
+</details>
+
+## About
+
+*"Singaporeans are bad pedestrians, and even worse drivers."*
+
+**Krashless** is a pitch for transport authorities around the globe (eg [LTA](https://www.lta.gov.sg)) aimed at making accident-prone intersections safer. It's an agentic dashboard that analyzes live traffic feeds & proposes structural modifications to dangerous intersections, dynamically generating visuals & itemizing the costs for these changes. 
+
+By pulling in diverse data sources & using advanced AI models, Krashless allows traffic infrastructure employees to visualize & evaluate safety improvements before any physical work begins.
+
+### Demo Video
+
+<div align="center">
+  <a href="https://youtu.be/uI_-RyKILfY">
+    <img src="public/demo_thumbnail.png" alt="Watch the Krashless Demo" width="750">
+  </a>
+  <p><i>Click the image to watch the short demo</i></p>
+</div>
+
+## Features
+
+- **Live Data Integration:** CCTV feeds, demographics (eg from HDB), zoning info & hazard stats (eg from LTA)
+- **Spatial Data:** Google Maps Photorealistic 3D Tiles API for rich spatial and geographical context (visuals only)
+- **AI Hazard Detection:** Gemini 3.1 Pro analyzes real-time traffic conditions & identify exactly *why* a specific intersection is dangerous
+- **Generative Infrastructure Proposals:** Nano Banana 2 generates predicted images of new, safer intersections
+- **Reasoning:** Highlight changed parts with markers, providing justification of changes & estimated cost
+- **Human-in-the-Loop:** Users can still manually review modifications re-generate the proposed intersection (no images yet) if unsatisfied
+
+<div align=center>
+  <img src="public/results.png" alt="" width=750>
+  <p><i>Results page with generated modified image</i></p>
+</div>
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+1. [Create GCP Project](https://console.cloud.google.com/projectcreate)
+2. Go to [APIs & Services](https://console.cloud.google.com/apis)
+3. Enable [Maps JavaScript API](https://console.cloud.google.com/apis/library/generativelanguage.googleapis.com)
+4. Enable [Google Gemini API](https://console.cloud.google.com/apis/library/generativelanguage.googleapis.com)
+5. [Create Credentials on Google Maps Platform](https://console.cloud.google.com/google/maps-apis/credentials) -> API Key
+6. [Create Credentials](https://console.cloud.google.com/apis/credentials) -> API Key -> Restrict to "Generative Language API"
+
+`.env` file
+```env
+GOOGLE_GENERATIVE_AI_API_KEY= 
+NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Installation
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+npm i
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Execution
 
-## Learn More
+```
+npm run dev
+```
 
-To learn more about Next.js, take a look at the following resources:
+## License <!-- omit in toc -->
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Distributed under the MIT License.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Acknowledgements  <!-- omit in toc -->
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- [adore_blvnk](https://x.com/adore_blvnk)
+- [Kai Jie](https://github.com/codebreaker64)
