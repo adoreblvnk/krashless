@@ -269,7 +269,7 @@ export function GmpMap3D(props: {
   showMarkerDetailsId?: string | null;
 }) {
   return (
-    <APIProvider apiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY as string} version="alpha">
+    <APIProvider apiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY as string} version="beta">
       <InnerMap3D {...props} />
     </APIProvider>
   );

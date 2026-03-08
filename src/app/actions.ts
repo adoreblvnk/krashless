@@ -58,6 +58,13 @@ export type BlueprintResult = {
   imageBase64: string | null;
 };
 
+export async function checkSystemStatus() {
+  const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+  return {
+    isSunsetMode: !apiKey || apiKey.trim() === ""
+  };
+}
+
 export async function generateBlueprint(): Promise<BlueprintResult> {
   let blueprintData: BlueprintResponse = mockResponse;
   let imageBase64: string | null = null;

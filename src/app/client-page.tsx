@@ -18,10 +18,13 @@ import {
   Check,
   X,
   MessageSquare,
-  Loader2
+  Loader2,
+  Trophy,
+  ExternalLink
 } from "lucide-react";
+import Image from "next/image";
 import { HOTSPOTS, INITIAL_LIVE_STATS, SINGAPORE_MAP_VIEW } from "@/data/mockData";
-import { generateBlueprint, generateAlternative, type BlueprintResponse } from "./actions";
+import { generateBlueprint, generateAlternative, checkSystemStatus, type BlueprintResponse } from "./actions";
 import { GmpMap3D } from "@/components/GmpMap3D";
 
 export default function CommandCenter() {
@@ -50,6 +53,25 @@ export default function CommandCenter() {
   type ModStatus = { status: "pending" | "accepted" | "rejecting" | "generating" | "rejected", rejectReason: string };
   const [modStatuses, setModStatuses] = useState<ModStatus[]>([]);
 
+  const [showWelcome, setShowWelcome] = useState(false);
+  const [showSunsetBanner, setShowSunsetBanner] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const hasSeen = localStorage.getItem("krashless_hasSeenWelcome");
+      if (!hasSeen) {
+        setShowWelcome(true);
+      }
+    }
+  }, []);
+
+  const dismissWelcome = () => {
+    setShowWelcome(false);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("krashless_hasSeenWelcome", "true");
+    }
+  };
+
   const clampPct = (value: number, min = 3, max = 97) => Math.min(max, Math.max(min, value));
 
   // Live Stats Ticker
@@ -66,6 +88,15 @@ export default function CommandCenter() {
   }, [viewState]);
 
   const handleEvaluate = async () => {
+    // Check if we're in sunset mode
+    const systemStatus = await checkSystemStatus();
+    if (systemStatus.isSunsetMode) {
+      setShowSunsetBanner(true);
+      // Wait a bit to let the user see the banner before proceeding with mock data
+      await new Promise((res) => setTimeout(res, 3500));
+      setShowSunsetBanner(false);
+    }
+
     setViewState("assessing");
 
     // Simulate terminal typing
@@ -187,9 +218,19 @@ export default function CommandCenter() {
             </div>
             <h1 className="text-xl font-bold tracking-tight">Krashless</h1>
           </button>
-          <span className="px-2 py-1 ml-4 rounded bg-slate-800 text-xs font-medium text-slate-400 border border-slate-700">
+          <span className="px-2 py-1 ml-4 rounded bg-slate-800 text-xs font-medium text-slate-400 border border-slate-700 hidden sm:inline-block">
             LTA Generative Urban Prototyping
           </span>
+
+          <button
+            onClick={() => setShowWelcome(true)}
+            className="ml-2 flex items-center gap-2 text-yellow-500 bg-yellow-950/30 hover:bg-yellow-950/50 px-3 py-1.5 rounded-full border border-yellow-900/50 shadow-[0_0_15px_rgba(234,179,8,0.1)] transition-colors"
+          >
+            <Trophy className="w-3.5 h-3.5" />
+            <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider hidden md:inline-block">
+              2nd Place ($30,000) • Gemini 3 Hackathon
+            </span>
+          </button>
         </div>
         <div className="flex items-center gap-4 text-sm text-slate-400">
           {pastEvaluations.length > 0 && (
@@ -210,6 +251,103 @@ export default function CommandCenter() {
 
       {/* Main Content Area */}
       <main className="flex-1 relative">
+        {/* Global Floating Elements */}
+        <AnimatePresence>
+          {showSunsetBanner && (
+            <motion.div
+              key="sunset-banner"
+              initial={{ opacity: 0, y: -20, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -20, scale: 0.95 }}
+              transition={{ duration: 0.3 }}
+              className="absolute top-6 left-1/2 -translate-x-1/2 z-[200] w-[90%] max-w-lg"
+            >
+              <div className="bg-orange-950/90 border border-orange-500/50 shadow-[0_0_30px_rgba(249,115,22,0.2)] rounded-xl p-4 flex items-start gap-4 backdrop-blur-md">
+                <div className="bg-orange-900/50 p-2 rounded-full shrink-0">
+                  <AlertTriangle className="w-5 h-5 text-orange-400" />
+                </div>
+                <div className="flex flex-col">
+                  <h3 className="text-orange-400 font-bold text-sm uppercase tracking-wider mb-1">Sunset Mode Active</h3>
+                  <p className="text-orange-200/80 text-sm leading-relaxed">
+                    Live Gemini API keys have been removed post-hackathon. Krashless is now demonstrating analysis using simulated mock data.
+                  </p>
+                </div>
+              </div>
+            </motion.div>
+          )}
+
+          {showWelcome && (
+            <motion.div
+              key="welcome-modal"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 z-[100] flex flex-col items-center justify-center bg-black/80 backdrop-blur-md p-6"
+            >
+              <div className="relative w-full max-w-2xl bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl p-8 md:p-12 flex flex-col items-center text-center">
+                {/* Close Button */}
+                <button
+                  onClick={dismissWelcome}
+                  className="absolute top-4 right-4 p-2 text-slate-400 hover:text-white transition-colors rounded-full hover:bg-slate-800"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+
+                {/* Prize Header */}
+                <div className="flex items-center gap-2 text-yellow-500 bg-yellow-950/30 px-4 py-1.5 rounded-full border border-yellow-900/50 shadow-[0_0_15px_rgba(234,179,8,0.1)] mb-6">
+                  <Trophy className="w-5 h-5" />
+                  <span className="text-sm font-bold uppercase tracking-wider">
+                    2nd Place Winner ($30,000)
+                  </span>
+                </div>
+
+                <h2 className="text-3xl md:text-4xl font-bold text-slate-100 mb-4 tracking-tight">
+                  Gemini 3 Singapore Hackathon
+                </h2>
+                <p className="text-slate-300 mb-8 max-w-lg leading-relaxed text-sm md:text-base">
+                  Krashless was awarded 2nd place out of 370+ participants in this exclusive event hosted by Google DeepMind and Cerebral Valley.
+                </p>
+
+                {/* Logos Grid */}
+                <div className="flex flex-col items-center gap-5 mb-10 w-full bg-slate-950/50 py-6 rounded-xl border border-slate-800/50 shadow-inner">
+                  <span className="text-[10px] text-slate-500 uppercase tracking-widest font-semibold">
+                    Hosted By
+                  </span>
+                  <div className="flex flex-col sm:flex-row items-center justify-center gap-6 md:gap-10 w-full">
+                    <a href="https://deepmind.google" target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 opacity-80 hover:opacity-100 transition-all hover:-translate-y-0.5">
+                      <Image src="/deepmind.png" alt="Google DeepMind" width={40} height={40} className="object-contain h-10 w-10" />
+                      <span className="font-semibold text-slate-200 text-lg tracking-tight">Google DeepMind</span>
+                    </a>
+                    <span className="hidden sm:block text-slate-700">|</span>
+                    <a href="https://cerebralvalley.ai" target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 opacity-80 hover:opacity-100 transition-all hover:-translate-y-0.5">
+                      <Image src="/cerebral_valley.png" alt="Cerebral Valley" width={40} height={40} className="object-contain h-10 w-10 rounded-md" />
+                      <span className="font-semibold text-slate-200 text-lg tracking-tight">Cerebral Valley</span>
+                    </a>
+                  </div>
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
+                  <a
+                    href="https://cerebralvalley.ai/e/gemini-3-singapore-hackathon/hackathon/gallery"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(16,185,129,0.3)]"
+                  >
+                    View Project Gallery
+                    <ExternalLink className="w-4 h-4" />
+                  </a>
+                  <button
+                    onClick={dismissWelcome}
+                    className="px-6 py-3 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg font-medium transition-colors border border-slate-700 flex items-center justify-center"
+                  >
+                    Enter Application
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         <AnimatePresence mode="wait">
           {viewState === "map" && (
             <motion.div
